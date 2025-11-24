@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beach Rally</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Floating New Game Button -->
+        <button id="floating-new-game" onclick="startNewGame()" style="position: absolute; top: 10px; right: 10px; background-color: #ff4444; color: white; padding: 15px 20px; border: 3px solid #fff; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+            🔄 RESTART GAME
+        </button>
+        <div id="game-ui">
+            <div id="score">Score: <span id="score-value">0</span></div>
+            <div id="time">Time: <span id="time-value">60</span></div>
+            <div id="level">Level: <span id="level-value">1</span></div>
+            <button id="new-game-btn" onclick="startNewGame()" style="background-color: #ff0000 !important; color: white !important; padding: 15px 25px; border: 3px solid yellow !important; font-size: 18px !important; font-weight: bold; display: block !important; margin: 10px 0;">🔄 NEW GAME 🔄</button>
+            <div id="instructions" style="font-size: 12px; margin-top: 10px; background-color: rgba(0, 0, 0, 0.6); padding: 8px 15px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.3);">
+                🎮 Arrow keys to move<br>
+                🔄 Ctrl+R to restart<br>
+                🔘 New Game button above
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" style="display: none;">
+            <div id="game-over-content">
+                <h2>Game Over!</h2>
+                <p>Final Score: <span id="final-score">0</span></p>
+                <p>Level Reached: <span id="final-level">1</span></p>
+                <button onclick="startNewGame()">Play Again</button>
+                <button onclick="location.reload()">Refresh Page</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/client.js') }}"></script>
+</body>
+</html>
