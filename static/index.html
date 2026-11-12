@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>KiteGame</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #10202b; overflow: hidden;
+               font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; touch-action: none; image-rendering: auto; }
+  #pad { position: fixed; left: 0; right: 0; bottom: 10px; display: none;
+         justify-content: space-between; padding: 0 14px; pointer-events: none; }
+  #pad .grp { display: grid; grid-template-columns: repeat(2, 64px); gap: 8px; pointer-events: auto; }
+  #pad button { height: 64px; border-radius: 14px; border: 2px solid rgba(255,255,255,.55);
+                background: rgba(20,40,60,.45); color: #fff; font-size: 26px; touch-action: none;
+                user-select: none; -webkit-user-select: none; }
+  #pad button.on { background: rgba(255,255,255,.35); }
+  @media (pointer: coarse) { #pad { display: flex; } }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="pad">
+  <div class="grp"><button data-k="left">&#8676;</button><button data-k="right">&#8677;</button></div>
+  <div class="grp"><button data-k="up">&#9650;</button><button data-k="down">&#9660;</button></div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

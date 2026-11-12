@@ -1,179 +1,120 @@
 # KiteGame
 
 > "We have concluded that the trivial mathematics is, on the whole, useful, and that the real mathematics, on the whole, is not."
-> G.H. Hardy (probably talking about my code)
+> G.H. Hardy
 
-## What is this?
+A kite flying game with real (if simplified) kite physics. The server simulates the wind, the kite and the line. The browser draws it. Everything is written from scratch on the Python and JavaScript standard libraries, so there is nothing to `pip install`.
 
-I'm Austin, a backend developer who was learning "advanced Python" until I hit the stage where I no longer know what I know, what I don't, or why `*args` and `**kwargs` made sense at 3 AM.
+The old Flask, SocketIO and Eventlet version is gone. The monkey patching went with it.
 
-So I decided to build a game. Nothing says "I understand async/await" like rendering palm trees in real time.
-
-## How it got here
-
-This started as Beach Buggy Racing, which the world did not need. Another racing game. Then I wondered why race on a beach when you could fly a kite on one, and that was that.
-
-I'm pivoting to a kite flying simulator for three reasons:
-1. It's slightly more original.
-2. Wind physics sounded fun. They are not.
-3. I've put in six hours already and sunk cost is my love language.
-
-You'll still find `BeachBuggy` classes and `sand_friction` variables all over the codebase. Pretend they're kites. It's a feature.
-
-## Tech stack (things I googled)
-
-- Python 3.x, because I still can't escape the whitespace wars
-- Flask and SocketIO for the real-time connection (I copied it from a tutorial)
-- Eventlet, monkey patching included. Yes, we literally patch monkeys. No, I don't know why.
-- HTML5 Canvas, where SVGs either render nicely or turn into invisible rectangles
-- JavaScript, because no Python dev's suffering is complete without it
-
-## Why TDD?
-
-I'm big on test-driven development, to an annoying degree. I write the tests first and Google "how to make test pass" afterwards.
-
-That's why the project has 47 TODOs and 3 working features. Those 3 features do have 95% test coverage, though. The rest, we'll cross that `AssertionError` when we get to it.
-
-## Current status
-
-```python
-class ProjectStatus(Enum):
-    BEACH_BUGGY = "deprecated"  # RIP 2024-2024
-    KITE_GAME = "in_progress"    # Current delusion
-    ACTUALLY_WORKS = "not_found"  # Maybe someday
-```
-
-What works:
-- The server starts, about half the time.
-- You can see something on screen.
-- Tests exist. They don't pass, but they exist.
-
-What doesn't:
-- The game concept
-- Physics (the wind goes swoosh and the kite goes thunk)
-- Level progression, which freezes the car. Yes, the kite. Don't ask.
-- My grasp of promises vs observables vs async
-
-What I'm unsure about: whether I'm building a game or a cry for help, why Python has 14 ways to do the same thing, and whether anyone will play this.
-
-## Issues
-
-I wrote up a bunch of GitHub issues to steer this toward completion. A few favorites:
-
-- #1: "I defined the same class twice because copy-paste is my debugging strategy"
-- #7: "Level progression freezes the car" (in a kite game)
-- #10: "I wrote an entire EventSystem and forgot to use it"
-
-The rest are in the [Issues tab](https://github.com/aueskinj/KiteGame/issues).
-
-## Installation
+## Run it
 
 ```bash
-# Clone it
-git clone https://github.com/yourusername/KiteGame.git
-cd KiteGame
-
-# Make a virtual environment (global installs are for anarchists)
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run it
-python app.py
+python app.py            # then open http://localhost:5000
+python app.py --port 8080 --host 0.0.0.0
 ```
 
-Then open `http://localhost:5000` and lower your expectations.
+Python 3.8 or newer. It was written and tested on 3.13, and it uses nothing newer than `ThreadingHTTPServer`.
 
-## Running tests
+## How to play
+
+| Key | Does |
+|---|---|
+| Left / Right (or A / D) | Reel the line in / pay it out |
+| Up / Down (or W / S) | Tilt the kite steeper (climbs, pulls harder) / flatter (sinks, pulls less) |
+| Enter | Play again after game over |
+
+On a phone or tablet, on-screen buttons appear.
+
+Fly through the gold rings to clear a level. Grabbing rings in quick succession builds a combo (up to x5). Two things cost a life:
+
+- **The line snaps.** Hold the tension gauge in the red for about a third of a second and the line goes. Reel out or tilt flatter to ease off.
+- **Birds.** They cross the screen. Hit one and you lose a life.
+
+You get three lives and a couple of seconds of protection after every relaunch. Each level brings stronger, gustier wind, a longer line, more rings and more birds, up to a cap.
+
+## How it works
+
+The server owns the game. The browser sends held keys, receives state 30 times a second, and draws it.
+
+**Physics** (`game/kite.py`). The kite is a point mass in a vertical plane with a flat plate for a sail. The force on the plate is the standard flat plate model, pressure proportional to the square of the air speed normal to the plate. Tilting the plate against the flow splits that force into lift and drag on its own, and lift fades at steep angles, so stalling falls out of the math with no lookup tables. The line is a hard constraint: the kite cannot be farther from your hand than the line is long, and line tension is the impulse needed to enforce that. A slack line has zero tension. The sail turns toward the angle the bridle sets (taut line) or weathervanes into the wind (slack line) through a critically damped spring.
+
+**Wind** (`game/wind.py`). Wind speed grows with height (power law profile) and gusts come from smooth value noise that travels downwind, so a gust you see approaching actually arrives. There is a weaker independent up and down draft.
+
+**Determinism** (`game/rng.py`). A small xorshift generator replaces `random`. The same seed and the same inputs give the same game on any machine, which is what makes the physics and the level logic testable.
+
+**Network** (`server/websocket.py`, `server/app.py`). A WebSocket implementation written to RFC 6455: handshake, masking, the three length encodings, fragmentation, ping/pong and close, validated against the RFC's own worked examples. Each connection gets its own thread and its own private game, stepped at a fixed 60 Hz. The server refuses cross-origin upgrades, caps connections at 64, rejects unmasked or oversized frames, and ignores malformed input.
+
+**Client** (`static/`). Plain HTML and Canvas. It keeps the last two snapshots and glides between them, so motion stays smooth at any refresh rate.
+
+### Project layout
+
+```
+app.py              entry point
+game/
+  vec.py            2D vector
+  rng.py            deterministic random numbers
+  wind.py           wind field
+  kite.py           kite and line physics
+  world.py          ring placement, birds
+  config.py         constants and the difficulty curve
+  state.py          the game: rules, collisions, scoring, levels
+server/
+  websocket.py      RFC 6455 framing
+  app.py            HTTP + WebSocket server, one session per player
+static/
+  index.html
+  game.js           rendering, input, interpolation
+tests/              91 tests
+```
+
+## Tests
 
 ```bash
-# Install test dependencies
-pip install pytest pytest-cov
-
-# Run tests
-pytest
-
-# With coverage
-pytest --cov=game tests/
-
-# Verbose, for when you want to question your life choices
-pytest -v
+python -m unittest discover -s tests -t .
+# or, if you have it:
+python -m pytest
 ```
 
-What you'll probably see:
+They cover the vector math, the random generator, the wind, the physics (the line never stretches, a kite flies in steady wind and falls in none, more wind means more tension), the game rules (scoring, combos, level progression, lives, snapping, game over and restart), ring placement across 2,400 generated levels, the WebSocket framing, and a live server on a random port that gets handshakes, garbage input, a bad origin and path traversal attempts.
+
+Level progression has a regression test. The old game froze when you finished a level. This one keeps flying.
+
+## Tuning
+
+Everything you would want to change lives in two places.
+
+- `game/config.py`: lives, snap threshold, combo window, ring size and spacing, and `LevelParams` for how wind, line length, rings and birds scale per level.
+- `class KiteParams` in `game/kite.py`: mass, sail area, drag, how fast the sail swings, reel speed. If you change these, run `pytest`. The flight tests will tell you if the kite stopped flying.
+
+## Message protocol
+
+Client to server, JSON text frames:
+
+```json
+{"type": "input", "left": false, "right": true, "up": false, "down": false}
+{"type": "restart"}
 ```
-======================== test session starts =========================
-collected 0 items
 
-========================= no tests ran in 0.01s ======================
+`restart` only does anything on the game over screen. Non-boolean values and unknown message types are ignored.
+
+Server to client:
+
+```json
+{"type": "init", "view": {...}, "anchor": {...}, "snap_tension": 16.0, "tick_hz": 60}
+{"type": "state", "t": 12.3, "phase": "flying", "level": 2, "score": 700, "lives": 3,
+ "kite": {...}, "wind": {...}, "rings": [...], "birds": [...], "events": [...]}
 ```
 
-I said I was big on TDD. I never said I was good at it.
+`init` arrives once on connect. `state` arrives about 30 times a second. `phase` is `flying`, `level_complete` or `game_over`. `events` lists what happened since the last snapshot (`ring`, `life_lost`, `level_complete`, `level_start`, `game_over`).
 
-## How to play (in theory)
+## Known limits
 
-Controls:
-- Arrow keys move the kite (or the buggy, depending on the commit)
-- `Ctrl+R` restarts. You'll need it.
-- `Ctrl+C` exits the game and the existential crisis
-- `Ctrl+Z` undoes life choices, depending on your OS
-
-The goal is to fly the kite through something (clouds? air currents?), collect something (points? wind? validation?) and avoid something (birds? obstacles? reality?). I'll fill in the details once I know what this game is.
-
-## Blog
-
-I'm writing the whole thing up on Medium, since misery likes company: [medium.com/@austinkmhi](https://medium.com/@austinkmhi)
-
-Planned posts:
-- "Why I Rewrote the Same Class Twice (And Still Got It Wrong)"
-- "Wind Physics: A Love Story (Spoiler: It's Toxic)"
-- "10 Ways to Debug WebSocket Issues (Number 7 Will Make You Cry)"
-- "I Tried Test-Driven Development and Now I Have 0 Features and 100 Tests"
-
-## Contributing
-
-Found a bug? Of course you did. There are dozens of us.
-
-Open an issue, send a PR (I'll review it between existential crises), or roast my code. I'm dead inside anyway. All code is guilty until proven innocent by tests.
-
-## Philosophy
-
-The Hardy quote up top is basically my motto if you swap "mathematics" for "programming projects."
-
-Is this game useful? No. Is it fun to work on? Weirdly, yes. Will anyone play it? Probably not. Will I finish it? `TODO: implement motivation`
+- Game state lives in memory. Closing the tab ends the game and nothing is saved, so there is no high score table yet.
+- One process, one thread per player. Measured at 30 simultaneous players with every one getting a steady 30 snapshots per second, but this is not built for thousands.
+- There is no sound.
+- The physics is 2D. Real kites also move sideways, which this one cannot.
 
 ## License
 
-MIT. The code is bad enough that it should be free. Port it to Rust, rewrite it in TypeScript, use it as a cautionary tale. I've stopped caring.
-
-## If you read this far
-
-You're probably one of these:
-1. A recruiter (hi, I'm more competent than this README suggests)
-2. A developer who knows this chaos
-3. My dad (thanks for the support, dad)
-4. Lost (check your `sys.path`)
-
-Code is temporary, but bugs are forever. Now I'm going to go write more tests that won't fix anything but will feel like progress.
-
----
-
-Status: compiles sometimes
-Test coverage: aspirational
-Sanity level: `None` (get it? because Python?)
-Kite flying accuracy: about as good as my understanding of decorators
-
-## Links
-
-- [GitHub Issues](https://github.com/aueskinj/KiteGame/issues): where dreams go to die
-- [Tests](./tests/): `FileNotFoundError: [Errno 2] No such file or directory`
-- [Documentation](./docs/): coming soon
-- [My Medium](https://medium.com/@austinkmhi): misery loves company
-
-PS: There's a `game_state_clean.py` because I tried to fix `game_state.py` and made it worse. It's the "before" photo in a weight-loss ad, with no "after."
-
-PPS: Yes, eventlet monkey patching is controversial. Yes, I'm using it anyway. No questions, please.
-
-PPPS: The kite SVG took 3 hours. The game logic took 45 minutes. Priorities.
+MIT. Do whatever you want with it.
